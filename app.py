@@ -55,11 +55,11 @@ def gpt_extract_deliverables(contract_text):
 {contract_text[:5000]}
 ```
     """
-    response = openai.chat.completions.create(
+    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-        api_key=st.secrets["OPENAI_API_KEY"]
+        temperature=0
     )
     raw = response.choices[0].message.content.strip()
     try:
