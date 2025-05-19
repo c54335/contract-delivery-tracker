@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import openai
 import json
+import re
 from io import BytesIO
 from PyPDF2 import PdfReader
+from openai import OpenAI
 
 st.set_page_config(page_title="AI 履約助手", layout="wide")
 st.title("📄 AI 契約清理 + 履約進度更新 系統")
@@ -35,7 +36,7 @@ with col2:
 # --------- GPT 履約交辦項目解析 ----------
 st.header("📋 步驟三：預覽交辦事項與推算期程")
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # 從 Streamlit secrets 管理中安全載入
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def gpt_extract_deliverables(contract_text):
     prompt = f"""
@@ -56,7 +57,7 @@ def gpt_extract_deliverables(contract_text):
 {contract_text[:5000]}
 ```
     """
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
