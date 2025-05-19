@@ -36,8 +36,6 @@ with col2:
 # --------- GPT 履約交辦項目解析 ----------
 st.header("📋 步驟三：預覽交辦事項與推算期程")
 
-client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 def gpt_extract_deliverables(contract_text):
     prompt = f"""
 你是一個工程契約分析助手，請根據以下契約內容，找出乙方需要交付的所有項目與期限，格式請用 JSON 陣列輸出，每筆格式如下：
@@ -57,10 +55,11 @@ def gpt_extract_deliverables(contract_text):
 {contract_text[:5000]}
 ```
     """
-    response = client.chat.completions.create(
+    response = openai.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        temperature=0,
+        api_key=st.secrets["OPENAI_API_KEY"]
     )
     raw = response.choices[0].message.content.strip()
     try:
@@ -97,4 +96,3 @@ if user_sentence:
         st.success(f"✅ 系統辨識為：{action}日 → {roc_date}")
     else:
         st.warning("⚠️ 無法從語句判斷日期或提送/核定行為")
-
