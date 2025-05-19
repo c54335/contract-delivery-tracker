@@ -10,6 +10,9 @@ import openai
 st.set_page_config(page_title="AI 履約助手", layout="wide")
 st.title("📄 AI 契約清理 + 履約進度更新 系統")
 
+# 設定 OpenAI 金鑰（舊版 SDK 寫法）
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
 # --------- 功能區塊 1：上傳契約 ----------
 st.header("📤 步驟一：上傳契約 PDF")
 uploaded_file = st.file_uploader("請上傳契約 PDF 檔案", type=["pdf"])
@@ -55,8 +58,7 @@ def gpt_extract_deliverables(contract_text):
 {contract_text[:5000]}
 ```
     """
-    client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
-    response = client.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
