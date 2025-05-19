@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from io import StringIO
+import openai
+import json
+from io import BytesIO
 from PyPDF2 import PdfReader
-import re
 
 st.set_page_config(page_title="AI 履約助手", layout="wide")
 st.title("📄 AI 契約清理 + 履約進度更新 系統")
@@ -13,8 +14,6 @@ st.header("📤 步驟一：上傳契約 PDF")
 uploaded_file = st.file_uploader("請上傳契約 PDF 檔案", type=["pdf"])
 contract_text = ""
 
-from io import BytesIO  # 要放在最外層
-
 if uploaded_file:
     pdf_stream = BytesIO(uploaded_file.read())
     reader = PdfReader(pdf_stream)
@@ -22,10 +21,8 @@ if uploaded_file:
 
     st.success("✅ 契約上傳成功，共讀取 {} 字元".format(len(contract_text)))
 
-    # 顯示部分原文
     with st.expander("查看部分契約內容"):
         st.text_area("契約文字內容", contract_text[:3000], height=300)
-
 
 # --------- 功能區塊 2：輸入起算日 ----------
 st.header("🗓️ 步驟二：輸入起算基準日")
@@ -35,37 +32,57 @@ with col1:
 with col2:
     award_date = st.date_input("決標日", value=datetime.date.today())
 
-# --------- 功能區塊 3：契約條文自動擷取（樣板） ----------
-def extract_deliverables(text):
-    pattern = r"第[一二三四五六七八九十]+條[\s\S]{0,20}?乙方[\s\S]{0,150}?須[於在]?[\s\S]{0,100}?(\d{1,3})[日天]內"
-    matches = re.findall(pattern, text)
-    return [f"乙方須於 {day} 日內交付項目" for day in matches]
-
-deliverables = extract_deliverables(contract_text) if contract_text else []
-
-# --------- 功能區塊 4：預覽時程表格 ----------
+# --------- GPT 履約交辦項目解析 ----------
 st.header("📋 步驟三：預覽交辦事項與推算期程")
-if deliverables:
-    df = pd.DataFrame({
-        "工作項目": deliverables,
-        "契約起算日": sign_date,
-        "契約規定天數": [int(re.findall(r'(\d+)', d)[0]) for d in deliverables],
-    })
-    df["應提送日"] = df["契約起算日"] + pd.to_timedelta(df["契約規定天數"], unit="D")
+
+openai.api_key = st.secrets["OPENAI_API_KEY"]  # 從 Streamlit secrets 管理中安全載入
+
+def gpt_extract_deliverables(contract_text):
+    prompt = f"""
+你是一個工程契約分析助手，請根據以下契約內容，找出乙方需要交付的所有項目與期限，格式請用 JSON 陣列輸出，每筆格式如下：
+{{
+  "工作項目": "期中報告",
+  "契約依據": "第七條第2款",
+  "期程文字": "簽約日後30日內",
+  "起算基準": "簽約日",
+  "天數": 30
+}}
+請注意：
+1. 每個項目請用合約內的原文作為「工作項目」
+2. 如果時間沒寫明天數，可以只填「期程文字」其餘空白
+3. 結果請直接回傳 JSON 陣列，不要加說明文字
+以下是契約全文：
+```
+{contract_text[:5000]}
+```
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
+    raw = response.choices[0].message.content.strip()
+    try:
+        data = json.loads(raw)
+        return data
+    except Exception as e:
+        return [{"工作項目": "解析失敗", "契約依據": "", "期程文字": raw, "錯誤": str(e)}]
+
+if contract_text:
+    with st.spinner("🔍 GPT 正在解析契約條文，請稍候..."):
+        gpt_data = gpt_extract_deliverables(contract_text)
+
+    df = pd.DataFrame(gpt_data)
+    if "天數" in df.columns:
+        df["應提送日期"] = df["天數"].apply(lambda d: sign_date + pd.to_timedelta(d, unit="D") if isinstance(d, int) else "")
     st.dataframe(df, use_container_width=True)
 
-    # 匯出 CSV
-    csv = df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="⬇️ 下載履約主控表 CSV",
-        data=csv,
-        file_name="履約主控表.csv",
-        mime="text/csv",
-    )
+    csv = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("⬇️ 下載履約主控表（GPT解析）", csv, file_name="履約主控表.csv", mime="text/csv")
 else:
-    st.info("📎 請上傳契約並擷取期程條款後，自動生成交辦列表")
+    st.info("📎 請上傳契約並擷取交辦條款後，自動生成交辦列表")
 
-# --------- 功能區塊 5：自然語句進度輸入 ----------
+# --------- 功能區塊 4：自然語句進度輸入 ----------
 st.header("💬 步驟四：輸入進度語句來自動回填")
 user_sentence = st.text_input("請輸入類似『我3/15送出期中報告』、『3/20已核定期末設計』等語句：")
 
@@ -79,3 +96,4 @@ if user_sentence:
         st.success(f"✅ 系統辨識為：{action}日 → {roc_date}")
     else:
         st.warning("⚠️ 無法從語句判斷日期或提送/核定行為")
+
