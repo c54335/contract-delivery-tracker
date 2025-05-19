@@ -55,7 +55,7 @@ def gpt_extract_deliverables(contract_text):
 3. 結果請直接回傳 JSON 陣列，不要加說明文字
 以下是契約全文：
 ```
-{contract_text[:5000]}
+{contract_text[:5000] if isinstance(contract_text, str) else ''}
 ```
     """
     response = openai.ChatCompletion.create(
