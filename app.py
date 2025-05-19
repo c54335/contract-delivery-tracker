@@ -61,7 +61,8 @@ def gpt_extract_deliverables(contract_text):
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        temperature=0,
+        request_timeout=60
     )
     raw = response.choices[0].message.content.strip()
     try:
