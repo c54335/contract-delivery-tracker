@@ -13,14 +13,19 @@ st.header("📤 步驟一：上傳契約 PDF")
 uploaded_file = st.file_uploader("請上傳契約 PDF 檔案", type=["pdf"])
 contract_text = ""
 
+from io import BytesIO  # 要放在最外層
+
 if uploaded_file:
-    reader = PdfReader(uploaded_file)
+    pdf_stream = BytesIO(uploaded_file.read())
+    reader = PdfReader(pdf_stream)
     contract_text = "\n".join(page.extract_text() for page in reader.pages if page.extract_text())
+
     st.success("✅ 契約上傳成功，共讀取 {} 字元".format(len(contract_text)))
-    
+
     # 顯示部分原文
     with st.expander("查看部分契約內容"):
         st.text_area("契約文字內容", contract_text[:3000], height=300)
+
 
 # --------- 功能區塊 2：輸入起算日 ----------
 st.header("🗓️ 步驟二：輸入起算基準日")
