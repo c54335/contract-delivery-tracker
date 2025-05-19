@@ -55,7 +55,7 @@ def gpt_extract_deliverables(contract_text):
 {contract_text[:5000]}
 ```
     """
-    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
