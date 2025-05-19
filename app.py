@@ -5,7 +5,7 @@ import json
 import re
 from io import BytesIO
 from PyPDF2 import PdfReader
-from openai import OpenAI
+import openai
 
 st.set_page_config(page_title="AI 履約助手", layout="wide")
 st.title("📄 AI 契約清理 + 履約進度更新 系統")
@@ -36,7 +36,7 @@ with col2:
 # --------- GPT 履約交辦項目解析 ----------
 st.header("📋 步驟三：預覽交辦事項與推算期程")
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def gpt_extract_deliverables(contract_text):
     prompt = f"""
